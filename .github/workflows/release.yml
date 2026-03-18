@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0)'
+        required: true
 
 permissions:
   contents: write
@@ -17,16 +21,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Resolve version
+        id: version
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+          } else {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+          }
+          echo "value=$version" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Set version in source
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          Set-Content -Path version.py -Value "VERSION = `"$version`"`n"
+          Set-Content -Path version.py -Value "VERSION = `"${{ steps.version.outputs.value }}`"`n"
         shell: pwsh
 
       - name: Install PyInstaller
@@ -35,16 +48,15 @@ jobs:
       - name: Build executable
         run: pyinstaller --onefile --windowed --name pyWeather main.py
 
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git tag "v${{ steps.version.outputs.value }}"
+          git push origin "v${{ steps.version.outputs.value }}"
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.value }}
           files: dist/pyWeather.exe
           generate_release_notes: true
-
-      - name: Upload artifact
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: pyWeather
-          path: dist/pyWeather.exe
