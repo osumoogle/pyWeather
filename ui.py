@@ -7,6 +7,7 @@ import winreg
 from models import Forecast
 from validation import validate_zipcode, ValidationError
 from settings import load_settings, save_settings
+from version import VERSION
 import api
 
 _DARK = {
@@ -200,6 +201,11 @@ class WeatherApp:
         self.detail_text.grid(row=10, column=0, sticky="ew", pady=(0, 4))
 
         self._periods: list = []
+
+        # Version footer
+        ttk.Label(frame, text=f"v{VERSION}", font=("", 8)).grid(
+            row=11, column=0, sticky="e", pady=(8, 0)
+        )
 
     def _on_theme_change(self, _event: tk.Event) -> None:
         choice = self.theme_var.get()
